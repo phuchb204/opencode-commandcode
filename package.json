@@ -1,0 +1,48 @@
+{
+  "name": "@phuchb204/opencode-commandcode",
+  "version": "1.0.0",
+  "description": "Command Code provider and desktop settings page for OpenCode v2",
+  "type": "module",
+  "license": "MIT",
+  "author": "phuchb204",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phuchb204/opencode-commandcode.git"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "command-code",
+    "commandcode",
+    "goat"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./rpc": "./src/rpc.ts",
+    "./gui-experimental": "./dist/gui-experimental.cjs"
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "peerDependencies": {
+    "@opencode/plugin": ">=2.2.0"
+  },
+  "devDependencies": {
+    "@opencode/plugin": "2.2.5",
+    "@types/node": "^24.10.0",
+    "solid-js": "^1.9.18",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7",
+    "vite-plugin-solid": "^2.11.10",
+    "vitest": "^3.2.7"
+  }
+}
