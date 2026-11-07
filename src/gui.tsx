@@ -56,7 +56,32 @@ function dateTime(value: string | number | undefined): string {
   return date.toLocaleString()
 }
 
-function Meter(props: { label: string; percent?: number; detail: string; title?: string }) {
+function toMillis(value: string | number | undefined): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined
+  const ms = typeof value === "number" ? value : Date.parse(value)
+  return Number.isFinite(ms) ? ms : undefined
+}
+
+function duration(ms: number, lang: string): string {
+  const totalMinutes = Math.max(0, Math.floor(ms / 60_000))
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+  const d = lang.startsWith("vi") ? " ngày" : "d"
+  const h = lang.startsWith("vi") ? "g" : "h"
+  const m = lang.startsWith("vi") ? "p" : "m"
+  if (days > 0) return hours > 0 ? `${days}${d} ${hours}${h}` : `${days}${d}`
+  if (hours > 0) return minutes > 0 ? `${hours}${h} ${minutes}${m}` : `${hours}${h}`
+  return `${Math.max(1, minutes)}${m}`
+}
+
+function shortStamp(ms: number): string {
+  const date = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function Meter(props: { label: string; percent?: number; detail: string; title?: string; reset?: string }) {
   const width = () => `${Math.max(0, Math.min(100, props.percent ?? 0))}%`
   const tone = () => ((props.percent ?? 0) >= 90 ? "#ef4444" : (props.percent ?? 0) >= 70 ? "#f59e0b" : ACCENT)
   return (
@@ -76,6 +101,9 @@ function Meter(props: { label: string; percent?: number; detail: string; title?:
           }}
         />
       </div>
+      <Show when={props.reset}>
+        <div style={{ ...muted, "font-size": "11px" }}>{props.reset}</div>
+      </Show>
     </div>
   )
 }
@@ -108,8 +136,21 @@ function Page(props: { ctx: Context }) {
   const [keyBusy, setKeyBusy] = createSignal(false)
   const [keyMessage, setKeyMessage] = createSignal<string | null>(null)
   const [keyOk, setKeyOk] = createSignal(false)
+  const [now, setNow] = createSignal(Date.now())
 
   const rpc = () => props.ctx.client.rpc(CommandCodeRpc)
+
+  function resetText(value: string | number | undefined): string | undefined {
+    const ms = toMillis(value)
+    if (ms === undefined) return undefined
+    const remaining = ms - now()
+    const when = shortStamp(ms)
+    if (remaining <= 0) return t("commandcode.resetSoon", { when })
+    return t("commandcode.resetIn", {
+      duration: duration(remaining, props.ctx.locale.locale()),
+      when,
+    })
+  }
 
   async function load(): Promise<void> {
     try {
@@ -181,7 +222,11 @@ function Page(props: { ctx: Context }) {
   onMount(() => {
     void load()
     const timer = setInterval(() => void load(), 60_000)
-    onCleanup(() => clearInterval(timer))
+    const clock = setInterval(() => setNow(Date.now()), 30_000)
+    onCleanup(() => {
+      clearInterval(timer)
+      clearInterval(clock)
+    })
   })
 
   const filtered = createMemo(() => {
@@ -347,6 +392,7 @@ function Page(props: { ctx: Context }) {
                   title={snapshot.windows?.fiveHour
                     ? `${snapshot.windows.fiveHour.used ?? "—"} / ${snapshot.windows.fiveHour.cap ?? "—"}`
                     : undefined}
+                  reset={resetText(snapshot.windows?.fiveHour?.resetAt)}
                 />
                 <Meter
                   label={t("commandcode.weekly")}
@@ -355,6 +401,7 @@ function Page(props: { ctx: Context }) {
                   title={snapshot.windows?.weekly
                     ? `${snapshot.windows.weekly.used ?? "—"} / ${snapshot.windows.weekly.cap ?? "—"}`
                     : undefined}
+                  reset={resetText(snapshot.windows?.weekly?.resetAt)}
                 />
                 <Meter
                   label={t("commandcode.monthly")}
@@ -363,6 +410,7 @@ function Page(props: { ctx: Context }) {
                   title={snapshot.windows?.monthly
                     ? `${money(snapshot.windows.monthly.used)} / ${money(snapshot.windows.monthly.cap)}`
                     : undefined}
+                  reset={resetText(snapshot.windows?.monthly?.resetAt)}
                 />
               </div>
 
@@ -477,6 +525,8 @@ export default Plugin.define({
       "commandcode.apiKeyCleared": "Saved key removed; using the CLI login or environment.",
       "commandcode.apiKeyCurrent": "Current source: {source}",
       "commandcode.windows": "Usage windows",
+      "commandcode.resetIn": "Resets in {duration} · {when}",
+      "commandcode.resetSoon": "Resets at {when}",
       "commandcode.fiveHour": "5 hours",
       "commandcode.weekly": "Weekly",
       "commandcode.monthly": "Monthly",
@@ -518,6 +568,8 @@ export default Plugin.define({
       "commandcode.apiKeyCleared": "Đã xóa key đã lưu; quay lại dùng CLI login hoặc environment.",
       "commandcode.apiKeyCurrent": "Nguồn hiện tại: {source}",
       "commandcode.windows": "Hạn mức sử dụng",
+      "commandcode.resetIn": "Làm mới sau {duration} · {when}",
+      "commandcode.resetSoon": "Làm mới lúc {when}",
       "commandcode.fiveHour": "5 giờ",
       "commandcode.weekly": "Tuần",
       "commandcode.monthly": "Tháng",
